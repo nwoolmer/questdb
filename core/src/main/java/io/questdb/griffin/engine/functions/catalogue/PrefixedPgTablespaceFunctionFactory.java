@@ -24,9 +24,9 @@
 
 package io.questdb.griffin.engine.functions.catalogue;
 
-public class PrefixedPgAuthMembersFunctionFactory extends PgAuthMembersFunctionFactory {
+public class PrefixedPgTablespaceFunctionFactory extends PgTablespaceFunctionFactory {
 
-    public PrefixedPgAuthMembersFunctionFactory() {
-        super("pg_catalog.pg_auth_members()");
+    public PrefixedPgTablespaceFunctionFactory() {
+        super("pg_catalog.pg_tablespace()");
     }
 }

@@ -24,9 +24,11 @@
 
 package io.questdb.griffin.engine.functions.catalogue;
 
-public class PrefixedPgAuthMembersFunctionFactory extends PgAuthMembersFunctionFactory {
+public class PrefixedPgTablespaceLocationFunctionFactory extends PgTablespaceLocationFunctionFactory {
 
-    public PrefixedPgAuthMembersFunctionFactory() {
-        super("pg_catalog.pg_auth_members()");
+    @Override
+    public String getSignature() {
+        return "pg_catalog.pg_tablespace_location(I)";
     }
+
 }

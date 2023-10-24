@@ -249,6 +249,7 @@ io.questdb.griffin.engine.functions.date.TimestampFloorFunctionFactory
 io.questdb.griffin.engine.functions.date.TimestampCeilFunctionFactory
 io.questdb.griffin.engine.functions.date.DateTruncFunctionFactory
 io.questdb.griffin.engine.functions.date.PgPostmasterStartTimeFunctionFactory
+io.questdb.griffin.engine.functions.date.CurrentTimestampFunctionFactory
 
 # cast functions
 
@@ -657,6 +658,10 @@ io.questdb.griffin.engine.functions.catalogue.PrefixedVersionFunctionFactory
 io.questdb.griffin.engine.functions.catalogue.PrefixedVersionFunctionFactory
 io.questdb.griffin.engine.functions.catalogue.PgAuthMembersFunctionFactory
 io.questdb.griffin.engine.functions.catalogue.PrefixedPgAuthMembersFunctionFactory
+io.questdb.griffin.engine.functions.catalogue.PgTablespaceFunctionFactory
+io.questdb.griffin.engine.functions.catalogue.PrefixedPgTablespaceFunctionFactory
+io.questdb.griffin.engine.functions.catalogue.PgTablespaceLocationFunctionFactory
+io.questdb.griffin.engine.functions.catalogue.PrefixedPgTablespaceLocationFunctionFactory
 
 io.questdb.griffin.engine.functions.catalogue.SimulateCrashFunctionFactory
 
