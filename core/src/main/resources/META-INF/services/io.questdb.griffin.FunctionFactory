@@ -571,6 +571,7 @@ io.questdb.griffin.engine.functions.groupby.IsIPv4OrderedGroupByFunctionFactory
 io.questdb.griffin.engine.functions.groupby.IsLongOrderedGroupByFunctionFactory
 
 # round()
+io.questdb.griffin.engine.functions.math.RoundDoubleZeroScaleFunctionFactory
 io.questdb.griffin.engine.functions.math.RoundDoubleFunctionFactory
 io.questdb.griffin.engine.functions.math.RoundDownDoubleFunctionFactory
 io.questdb.griffin.engine.functions.math.RoundUpDoubleFunctionFactory
@@ -653,6 +654,9 @@ io.questdb.griffin.engine.functions.catalogue.PgShDescriptionFunctionFactory
 io.questdb.griffin.engine.functions.catalogue.CurrentDatabaseFunctionFactory
 io.questdb.griffin.engine.functions.catalogue.PrefixedCurrentDatabaseFunctionFactory
 io.questdb.griffin.engine.functions.catalogue.PrefixedVersionFunctionFactory
+io.questdb.griffin.engine.functions.catalogue.PrefixedVersionFunctionFactory
+io.questdb.griffin.engine.functions.catalogue.PgAuthMembersFunctionFactory
+io.questdb.griffin.engine.functions.catalogue.PrefixedPgAuthMembersFunctionFactory
 
 io.questdb.griffin.engine.functions.catalogue.SimulateCrashFunctionFactory
 
