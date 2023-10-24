@@ -22,38 +22,34 @@
  *
  ******************************************************************************/
 
-package io.questdb.test.griffin.engine.functions.math;
+package io.questdb.test.griffin.engine.functions.catalogue;
 
-import io.questdb.griffin.FunctionFactory;
-import io.questdb.griffin.SqlException;
-import io.questdb.test.griffin.engine.AbstractFunctionFactoryTest;
-import io.questdb.griffin.engine.functions.math.RoundDoubleZeroScaleFunctionFactory;
+import io.questdb.test.AbstractCairoTest;
 import org.junit.Test;
 
-public class RoundDoubleZeroScaleFunctionFactoryTest extends AbstractFunctionFactoryTest {
+public class PgAuthMembersFunctionFactoryTest extends AbstractCairoTest {
 
     @Test
-    public void testNan() throws SqlException {
-        call(Double.NaN).andAssert(Double.NaN, 0.0000000001);
+    public void testPgAuthMembersFunc() throws Exception {
+        assertQuery(
+                "oid\troleid\tmember\tgrantor\tadmin_option\tinherit_option\tset_option\n",
+                "pg_auth_members;",
+                null,
+                null,
+                false,
+                true
+        );
     }
 
     @Test
-    public void testNegScaleNegValue() throws SqlException {
-        call(-106.1).andAssert(-106, 0.0000000001);
-    }
-
-    @Test
-    public void testNegScalePosValue() throws SqlException {
-        call(104.9).andAssert(105, 0.0000000001);
-    }
-
-    @Override
-    protected FunctionFactory getFunctionFactory() {
-        return new RoundDoubleZeroScaleFunctionFactory();
-    }
-
-    @Test
-    public void testWorksViaQuery() throws Exception {
-        assertQuery("round\n5", "select round(5.2)", null, null, false, false);
+    public void testPrefixedPgAuthMembersFunc() throws Exception {
+        assertQuery(
+                "oid\troleid\tmember\tgrantor\tadmin_option\tinherit_option\tset_option\n",
+                "pg_catalog.pg_auth_members;",
+                null,
+                null,
+                false,
+                true
+        );
     }
 }
