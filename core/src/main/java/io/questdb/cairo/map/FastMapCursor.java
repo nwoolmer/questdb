@@ -26,6 +26,7 @@ package io.questdb.cairo.map;
 
 import io.questdb.cairo.sql.Record;
 import io.questdb.cairo.sql.RecordCursor;
+import io.questdb.cairo.sql.SqlExecutionCircuitBreaker;
 import io.questdb.std.Unsafe;
 
 public final class FastMapCursor implements RecordCursor {
@@ -52,6 +53,14 @@ public final class FastMapCursor implements RecordCursor {
     }
 
     @Override
+    public void calculateSize(SqlExecutionCircuitBreaker circuitBreaker, Counter counter) {
+        if (remaining > 0) {
+            counter.add(remaining);
+            remaining = 0;
+        }
+    }
+
+    @Override
     public void close() {
         map.restoreInitialCapacity();
     }
@@ -71,7 +80,8 @@ public final class FastMapCursor implements RecordCursor {
         if (remaining > 0) {
             long address = this.address;
             if (keyValueSize == -1) {
-                this.address = address + Unsafe.getUnsafe().getInt(address);
+                int keySize = Unsafe.getUnsafe().getInt(address);
+                this.address = address + Integer.BYTES + keySize + map.valueSize();
             } else {
                 this.address = address + keyValueSize;
             }

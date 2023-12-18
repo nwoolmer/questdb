@@ -24,8 +24,6 @@
 
 package io.questdb.test.cutlass.http;
 
-import io.questdb.MessageBus;
-import io.questdb.MessageBusImpl;
 import io.questdb.Metrics;
 import io.questdb.cairo.*;
 import io.questdb.cairo.sql.Record;
@@ -53,10 +51,7 @@ import io.questdb.network.*;
 import io.questdb.std.*;
 import io.questdb.std.datetime.microtime.Timestamps;
 import io.questdb.std.datetime.millitime.MillisecondClock;
-import io.questdb.std.str.AbstractCharSequence;
-import io.questdb.std.str.ByteSequence;
-import io.questdb.std.str.Path;
-import io.questdb.std.str.StringSink;
+import io.questdb.std.str.*;
 import io.questdb.tasks.TelemetryTask;
 import io.questdb.test.AbstractTest;
 import io.questdb.test.CreateTableTestUtils;
@@ -146,6 +141,24 @@ public class IODispatcherTest extends AbstractTest {
         super.setUp();
         SharedRandom.RANDOM.set(new Rnd());
         testHttpClient.setKeepConnection(false);
+    }
+
+    @Override
+    public void tearDown() throws Exception {
+        super.tearDown();
+        TestDataUnavailableFunctionFactory.eventCallback = null;
+    }
+
+    @Test
+    public void testBadImplicitStrToLongCast() throws Exception {
+        getSimpleTester().run(engine -> {
+            testHttpClient.assertGet("{\"ddl\":\"OK\"}", "create table tab (value int, when long, ts timestamp) timestamp(ts) partition by day bypass wal;");
+            testHttpClient.assertGet("{\"ddl\":\"OK\"}", "insert into tab values(1, now(), now());"); // it should not be DDL:OK. change me when https://github.com/questdb/questdb/issues/3858 is fixed
+            testHttpClient.assertGet(
+                    "{\"query\":\"select * from tab where when = '2023-10-17';\",\"error\":\"inconvertible value: `2023-10-17` [STRING -> LONG]\",\"position\":0}",
+                    "select * from tab where when = '2023-10-17';"
+            );
+        });
     }
 
     @Test
@@ -383,7 +396,7 @@ public class IODispatcherTest extends AbstractTest {
                     }
 
                     @Override
-                    public HttpRequestProcessor select(CharSequence url) {
+                    public HttpRequestProcessor select(Utf8Sequence url) {
                         return null;
                     }
                 };
@@ -2229,7 +2242,7 @@ public class IODispatcherTest extends AbstractTest {
             final WorkerPool workerPool = new TestWorkerPool(3, metrics);
             try (
                     CairoEngine engine = new CairoEngine(new DefaultTestCairoConfiguration(baseDir), metrics);
-                    HttpServer httpServer = new HttpServer(httpConfiguration, engine.getMessageBus(), metrics, workerPool, PlainSocketFactory.INSTANCE)
+                    HttpServer httpServer = new HttpServer(httpConfiguration, metrics, workerPool, PlainSocketFactory.INSTANCE)
             ) {
                 httpServer.bind(new HttpRequestProcessorFactory() {
                     @Override
@@ -2779,7 +2792,7 @@ public class IODispatcherTest extends AbstractTest {
             WorkerPool workerPool = new TestWorkerPool(2);
             try (
                     CairoEngine engine = new CairoEngine(new DefaultTestCairoConfiguration(baseDir), metrics);
-                    HttpServer httpServer = new HttpServer(httpConfiguration, engine.getMessageBus(), metrics, workerPool, PlainSocketFactory.INSTANCE)
+                    HttpServer httpServer = new HttpServer(httpConfiguration, metrics, workerPool, PlainSocketFactory.INSTANCE)
             ) {
                 httpServer.bind(new HttpRequestProcessorFactory() {
                     @Override
@@ -3388,7 +3401,7 @@ public class IODispatcherTest extends AbstractTest {
             WorkerPool workerPool = new TestWorkerPool(1);
             try (
                     CairoEngine engine = new CairoEngine(new DefaultTestCairoConfiguration(baseDir), metrics);
-                    HttpServer httpServer = new HttpServer(httpConfiguration, engine.getMessageBus(), metrics, workerPool, PlainSocketFactory.INSTANCE)
+                    HttpServer httpServer = new HttpServer(httpConfiguration, metrics, workerPool, PlainSocketFactory.INSTANCE)
             ) {
                 httpServer.bind(new HttpRequestProcessorFactory() {
                     @Override
@@ -3451,7 +3464,7 @@ public class IODispatcherTest extends AbstractTest {
                             try {
                                 int sent = 0;
                                 int reqLen = request.length();
-                                Chars.asciiStrCpy(request, reqLen, ptr);
+                                Utf8s.strCpyAscii(request, reqLen, ptr);
                                 while (sent < reqLen) {
                                     int n = NetworkFacadeImpl.INSTANCE.sendRaw(fd, ptr + sent, reqLen - sent);
                                     Assert.assertTrue(n > -1);
@@ -3519,14 +3532,6 @@ public class IODispatcherTest extends AbstractTest {
                         Misc.free(eventRef.get());
                     }
                 });
-    }
-
-    @Test
-    public void testJsonQueryDisconnectOnDataUnavailableEventNeverFired() throws Exception {
-        testDisconnectOnDataUnavailableEventNeverFired(
-                "GET /query?query=" + HttpUtils.urlEncodeQuery("select * from test_data_unavailable(1, 10)") + "&count=true HTTP/1.1\r\n"
-                        + SendAndReceiveRequestBuilder.RequestHeaders
-        );
     }
 
     @Test
@@ -3606,6 +3611,24 @@ public class IODispatcherTest extends AbstractTest {
                         "00\r\n" +
                         "\r\n"
         );
+    }
+
+    @Test
+    public void testJsonQueryErrorOnDataUnavailableEventNeverFired() throws Exception {
+        TestDataUnavailableFunctionFactory.eventCallback = SuspendEvent::close;
+        new HttpQueryTestBuilder()
+                .withTempFolder(root)
+                .withWorkerCount(1)
+                .withHttpServerConfigBuilder(new HttpServerConfigurationBuilder())
+                .withTelemetry(false)
+                .withQueryTimeout(100)
+                .run(engine -> testHttpClient.assertGetRegexp(
+                        "/query",
+                        "\\{\"query\":\"select \\* from test_data_unavailable\\(1, 10\\)\",\"error\":\"timeout, query aborted \\[fd=\\d+\\]\",\"position\":0\\}",
+                        "select * from test_data_unavailable(1, 10)",
+                        null, null,
+                        "400"
+                ));
     }
 
     @Test
@@ -4688,7 +4711,7 @@ public class IODispatcherTest extends AbstractTest {
             WorkerPool workerPool = new TestWorkerPool(1);
             try (
                     CairoEngine engine = new CairoEngine(new DefaultTestCairoConfiguration(baseDir), metrics);
-                    HttpServer httpServer = new HttpServer(httpConfiguration, engine.getMessageBus(), metrics, workerPool, PlainSocketFactory.INSTANCE)
+                    HttpServer httpServer = new HttpServer(httpConfiguration, metrics, workerPool, PlainSocketFactory.INSTANCE)
             ) {
                 httpServer.bind(new HttpRequestProcessorFactory() {
                     @Override
@@ -4753,18 +4776,14 @@ public class IODispatcherTest extends AbstractTest {
                 .run((engine) -> {
                     try (SqlExecutionContext executionContext = TestUtils.createSqlExecutionCtx(engine)) {
                         engine.ddl(QUERY_TIMEOUT_TABLE_DDL, executionContext);
-                        // We expect header only to be sent and then a disconnect.
-                        new SendAndReceiveRequestBuilder()
-                                .withExpectReceiveDisconnect(true)
-                                .executeWithStandardRequestHeaders(
-                                        "GET /exec?query=" + HttpUtils.urlEncodeQuery(QUERY_TIMEOUT_SELECT) + "&count=true HTTP/1.1\r\n",
-                                        "HTTP/1.1 200 OK\r\n" +
-                                                "Server: questDB/1.0\r\n" +
-                                                "Date: Thu, 1 Jan 1970 00:00:00 GMT\r\n" +
-                                                "Transfer-Encoding: chunked\r\n" +
-                                                "Content-Type: application/json; charset=utf-8\r\n" +
-                                                "Keep-Alive: timeout=5, max=10000\r\n"
-                                );
+                        // we use regexp, because the fd is different every time
+                        testHttpClient.assertGetRegexp(
+                                "/query",
+                                "\\{\"query\":\"select i, avg\\(l\\), max\\(l\\) from t group by i order by i asc limit 3\",\"error\":\"timeout, query aborted \\[fd=\\d+\\]\",\"position\":0\\}",
+                                "select i, avg(l), max(l) from t group by i order by i asc limit 3",
+                                null, null,
+                                "400"
+                        );
                     }
                 });
     }
@@ -4948,7 +4967,7 @@ public class IODispatcherTest extends AbstractTest {
             final WorkerPool workerPool = new TestWorkerPool(2);
             try (
                     CairoEngine engine = new CairoEngine(new DefaultTestCairoConfiguration(baseDir), metrics);
-                    HttpServer httpServer = new HttpServer(httpConfiguration, engine.getMessageBus(), metrics, workerPool, PlainSocketFactory.INSTANCE)) {
+                    HttpServer httpServer = new HttpServer(httpConfiguration, metrics, workerPool, PlainSocketFactory.INSTANCE)) {
                 httpServer.bind(new HttpRequestProcessorFactory() {
                     @Override
                     public String getUrl() {
@@ -5026,7 +5045,7 @@ public class IODispatcherTest extends AbstractTest {
             WorkerPool workerPool = new TestWorkerPool(2);
             try (
                     CairoEngine engine = new CairoEngine(new DefaultTestCairoConfiguration(baseDir), metrics);
-                    HttpServer httpServer = new HttpServer(httpConfiguration, engine.getMessageBus(), metrics, workerPool, PlainSocketFactory.INSTANCE)
+                    HttpServer httpServer = new HttpServer(httpConfiguration, metrics, workerPool, PlainSocketFactory.INSTANCE)
             ) {
                 httpServer.bind(new HttpRequestProcessorFactory() {
                     @Override
@@ -5122,7 +5141,7 @@ public class IODispatcherTest extends AbstractTest {
                     return 10_000;
                 }
             }, metrics);
-                 HttpServer httpServer = new HttpServer(httpConfiguration, engine.getMessageBus(), metrics, workerPool, PlainSocketFactory.INSTANCE)
+                 HttpServer httpServer = new HttpServer(httpConfiguration, metrics, workerPool, PlainSocketFactory.INSTANCE)
             ) {
                 httpServer.bind(new HttpRequestProcessorFactory() {
                     @Override
@@ -5419,7 +5438,7 @@ public class IODispatcherTest extends AbstractTest {
                     }
 
                     @Override
-                    public HttpRequestProcessor select(CharSequence url) {
+                    public HttpRequestProcessor select(Utf8Sequence url) {
                         return null;
                     }
                 };
@@ -5586,7 +5605,7 @@ public class IODispatcherTest extends AbstractTest {
                     try {
                         int sent = 0;
                         int reqLen = request.length();
-                        Chars.asciiStrCpy(request, reqLen, ptr);
+                        Utf8s.strCpyAscii(request, reqLen, ptr);
                         boolean disconnected = false;
                         while (sent < reqLen) {
                             int n = nf.sendRaw(fd, ptr + sent, reqLen - sent);
@@ -5836,12 +5855,10 @@ public class IODispatcherTest extends AbstractTest {
     public void testSCPConnectDownloadDisconnect() throws Exception {
         assertMemoryLeak(() -> {
             final String baseDir = root;
-            final DefaultCairoConfiguration configuration = new DefaultTestCairoConfiguration(baseDir);
             final DefaultHttpServerConfiguration httpConfiguration = createHttpServerConfiguration(baseDir, false);
             WorkerPool workerPool = new TestWorkerPool(2);
             try (
-                    MessageBus messageBus = new MessageBusImpl(configuration);
-                    HttpServer httpServer = new HttpServer(httpConfiguration, messageBus, metrics, workerPool, PlainSocketFactory.INSTANCE)
+                    HttpServer httpServer = new HttpServer(httpConfiguration, metrics, workerPool, PlainSocketFactory.INSTANCE)
             ) {
                 httpServer.bind(new HttpRequestProcessorFactory() {
                     @Override
@@ -5991,12 +6008,10 @@ public class IODispatcherTest extends AbstractTest {
     public void testSCPFullDownload() throws Exception {
         assertMemoryLeak(() -> {
             final String baseDir = root;
-            final DefaultCairoConfiguration configuration = new DefaultTestCairoConfiguration(baseDir);
             final DefaultHttpServerConfiguration httpConfiguration = createHttpServerConfiguration(baseDir, false);
             WorkerPool workerPool = new TestWorkerPool(2);
             try (
-                    MessageBus messageBus = new MessageBusImpl(configuration);
-                    HttpServer httpServer = new HttpServer(httpConfiguration, messageBus, metrics, workerPool, PlainSocketFactory.INSTANCE)
+                    HttpServer httpServer = new HttpServer(httpConfiguration, metrics, workerPool, PlainSocketFactory.INSTANCE)
             ) {
                 httpServer.bind(new HttpRequestProcessorFactory() {
                     @Override
@@ -6136,7 +6151,6 @@ public class IODispatcherTest extends AbstractTest {
     public void testSCPHttp10() throws Exception {
         assertMemoryLeak(() -> {
             final String baseDir = root;
-            final DefaultCairoConfiguration configuration = new DefaultTestCairoConfiguration(baseDir);
             final DefaultHttpServerConfiguration httpConfiguration = createHttpServerConfiguration(
                     NetworkFacadeImpl.INSTANCE,
                     baseDir,
@@ -6148,8 +6162,7 @@ public class IODispatcherTest extends AbstractTest {
             );
             WorkerPool workerPool = new TestWorkerPool(2);
             try (
-                    MessageBus messageBus = new MessageBusImpl(configuration);
-                    HttpServer httpServer = new HttpServer(httpConfiguration, messageBus, metrics, workerPool, PlainSocketFactory.INSTANCE)
+                    HttpServer httpServer = new HttpServer(httpConfiguration, metrics, workerPool, PlainSocketFactory.INSTANCE)
             ) {
                 httpServer.bind(new HttpRequestProcessorFactory() {
                     @Override
@@ -6345,14 +6358,14 @@ public class IODispatcherTest extends AbstractTest {
 
         // the difference between request and expected is url encoding (and ':' padding, which can easily be fixed)
         final String expected = "GET /status?x=1&a=&b&c&d=x HTTP/1.1\r\n" +
-                "host:localhost:9000\r\n" +
-                "connection:keep-alive\r\n" +
-                "cache-control:max-age=0\r\n" +
-                "accept:text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8\r\n" +
-                "user-agent:Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/31.0.1650.48 Safari/537.36\r\n" +
-                "accept-encoding:gzip,deflate,sdch\r\n" +
-                "accept-language:en-US,en;q=0.8\r\n" +
-                "cookie:textwrapon=false; textautoformat=false; wysiwyg=textarea\r\n" +
+                "Host:localhost:9000\r\n" +
+                "Connection:keep-alive\r\n" +
+                "Cache-Control:max-age=0\r\n" +
+                "Accept:text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8\r\n" +
+                "User-Agent:Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/31.0.1650.48 Safari/537.36\r\n" +
+                "Accept-Encoding:gzip,deflate,sdch\r\n" +
+                "Accept-Language:en-US,en;q=0.8\r\n" +
+                "Cookie:textwrapon=false; textautoformat=false; wysiwyg=textarea\r\n" +
                 "\r\n";
 
         assertMemoryLeak(() -> {
@@ -6397,14 +6410,14 @@ public class IODispatcherTest extends AbstractTest {
                     }
 
                     @Override
-                    public HttpRequestProcessor select(CharSequence url) {
+                    public HttpRequestProcessor select(Utf8Sequence url) {
                         return new HttpRequestProcessor() {
                             @Override
                             public void onHeadersReady(HttpConnectionContext context) {
                                 HttpRequestHeader headers = context.getRequestHeader();
                                 sink.put(headers.getMethodLine());
                                 sink.put("\r\n");
-                                ObjList<CharSequence> headerNames = headers.getHeaderNames();
+                                ObjList<? extends Utf8Sequence> headerNames = headers.getHeaderNames();
                                 for (int i = 0, n = headerNames.size(); i < n; i++) {
                                     sink.put(headerNames.getQuick(i)).put(':');
                                     sink.put(headers.getHeader(headerNames.getQuick(i)));
@@ -6494,14 +6507,14 @@ public class IODispatcherTest extends AbstractTest {
 
         // the difference between request and expected is url encoding (and ':' padding, which can easily be fixed)
         final String expected = "GET /status?x=1&a=&b&c&d=x HTTP/1.1\r\n" +
-                "host:localhost:9000\r\n" +
-                "connection:keep-alive\r\n" +
-                "cache-control:max-age=0\r\n" +
-                "accept:text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8\r\n" +
-                "user-agent:Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/31.0.1650.48 Safari/537.36\r\n" +
-                "accept-encoding:gzip,deflate,sdch\r\n" +
-                "accept-language:en-US,en;q=0.8\r\n" +
-                "cookie:textwrapon=false; textautoformat=false; wysiwyg=textarea\r\n" +
+                "Host:localhost:9000\r\n" +
+                "Connection:keep-alive\r\n" +
+                "Cache-Control:max-age=0\r\n" +
+                "Accept:text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8\r\n" +
+                "User-Agent:Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/31.0.1650.48 Safari/537.36\r\n" +
+                "Accept-Encoding:gzip,deflate,sdch\r\n" +
+                "Accept-Language:en-US,en;q=0.8\r\n" +
+                "Cookie:textwrapon=false; textautoformat=false; wysiwyg=textarea\r\n" +
                 "\r\n";
 
         final String expectedResponse = "HTTP/1.1 200 OK\r\n" +
@@ -6566,7 +6579,7 @@ public class IODispatcherTest extends AbstractTest {
                                 HttpRequestHeader headers = context.getRequestHeader();
                                 sink.put(headers.getMethodLine());
                                 sink.put("\r\n");
-                                ObjList<CharSequence> headerNames = headers.getHeaderNames();
+                                ObjList<? extends Utf8Sequence> headerNames = headers.getHeaderNames();
                                 for (int i = 0, n = headerNames.size(); i < n; i++) {
                                     sink.put(headerNames.getQuick(i)).put(':');
                                     sink.put(headers.getHeader(headerNames.getQuick(i)));
@@ -6583,7 +6596,7 @@ public class IODispatcherTest extends AbstractTest {
                     }
 
                     @Override
-                    public HttpRequestProcessor select(CharSequence url) {
+                    public HttpRequestProcessor select(Utf8Sequence url) {
                         return null;
                     }
                 };
@@ -6726,7 +6739,7 @@ public class IODispatcherTest extends AbstractTest {
                                 HttpRequestHeader headers = connectionContext.getRequestHeader();
                                 sink.put(headers.getMethodLine());
                                 sink.put("\r\n");
-                                ObjList<CharSequence> headerNames = headers.getHeaderNames();
+                                ObjList<? extends Utf8Sequence> headerNames = headers.getHeaderNames();
                                 for (int i = 0, n = headerNames.size(); i < n; i++) {
                                     sink.put(headerNames.getQuick(i)).put(':');
                                     sink.put(headers.getHeader(headerNames.getQuick(i)));
@@ -6738,7 +6751,7 @@ public class IODispatcherTest extends AbstractTest {
                     }
 
                     @Override
-                    public HttpRequestProcessor select(CharSequence url) {
+                    public HttpRequestProcessor select(Utf8Sequence url) {
                         return null;
                     }
                 };
@@ -6821,6 +6834,11 @@ public class IODispatcherTest extends AbstractTest {
                 .withHttpServerConfigBuilder(new HttpServerConfigurationBuilder().withSendBufferSize(256))
                 .withTelemetry(false)
                 .run((engine) -> {
+                    TestDataUnavailableFunctionFactory.eventCallback = event -> {
+                        event.trigger();
+                        event.close();
+                    };
+
                     final String select = "select * from test_data_unavailable(32, 10)";
                     new SendAndReceiveRequestBuilder().executeWithStandardRequestHeaders(
                             "GET /exp?query=" + HttpUtils.urlEncodeQuery(select) + "&count=true HTTP/1.1\r\n",
@@ -7600,8 +7618,7 @@ public class IODispatcherTest extends AbstractTest {
 
     @Test
     public void testTwoThreadsSendTwoThreadsRead() throws Exception {
-
-        LOG.info().$("started testSendHttpGet").$();
+        LOG.info().$("started testTwoThreadsSendTwoThreadsRead").$();
 
         final String request = "GET /status?x=1&a=%26b&c&d=x HTTP/1.1\r\n" +
                 "Host: localhost:9000\r\n" +
@@ -7616,14 +7633,14 @@ public class IODispatcherTest extends AbstractTest {
 
         // the difference between request and expected is url encoding (and ':' padding, which can easily be fixed)
         final String expected = "GET /status?x=1&a=&b&c&d=x HTTP/1.1\r\n" +
-                "host:localhost:9000\r\n" +
-                "connection:keep-alive\r\n" +
-                "cache-control:max-age=0\r\n" +
-                "accept:text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8\r\n" +
-                "user-agent:Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/31.0.1650.48 Safari/537.36\r\n" +
-                "accept-encoding:gzip,deflate,sdch\r\n" +
-                "accept-language:en-US,en;q=0.8\r\n" +
-                "cookie:textwrapon=false; textautoformat=false; wysiwyg=textarea\r\n" +
+                "Host:localhost:9000\r\n" +
+                "Connection:keep-alive\r\n" +
+                "Cache-Control:max-age=0\r\n" +
+                "Accept:text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8\r\n" +
+                "User-Agent:Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/31.0.1650.48 Safari/537.36\r\n" +
+                "Accept-Encoding:gzip,deflate,sdch\r\n" +
+                "Accept-Language:en-US,en;q=0.8\r\n" +
+                "Cookie:textwrapon=false; textautoformat=false; wysiwyg=textarea\r\n" +
                 "\r\n";
 
         final int N = 100;
@@ -7646,7 +7663,6 @@ public class IODispatcherTest extends AbstractTest {
                     },
                     (fd, dispatcher1) -> new HttpConnectionContext(httpServerConfiguration, metrics, PlainSocketFactory.INSTANCE).of(fd, dispatcher1)
             )) {
-
                 // server will publish status of each request to this queue
                 final RingQueue<Status> queue = new RingQueue<>(Status::new, 1024);
                 final MPSequence pubSeq = new MPSequence(queue.getCycle());
@@ -7670,7 +7686,7 @@ public class IODispatcherTest extends AbstractTest {
                                     sink.clear();
                                     sink.put(headers.getMethodLine());
                                     sink.put("\r\n");
-                                    ObjList<CharSequence> headerNames = headers.getHeaderNames();
+                                    ObjList<? extends Utf8Sequence> headerNames = headers.getHeaderNames();
                                     for (int i = 0, n = headerNames.size(); i < n; i++) {
                                         sink.put(headerNames.getQuick(i)).put(':');
                                         sink.put(headers.getHeader(headerNames.getQuick(i)));
@@ -7713,7 +7729,7 @@ public class IODispatcherTest extends AbstractTest {
                                 }
 
                                 @Override
-                                public HttpRequestProcessor select(CharSequence url) {
+                                public HttpRequestProcessor select(Utf8Sequence url) {
                                     return null;
                                 }
                             };
@@ -7780,9 +7796,6 @@ public class IODispatcherTest extends AbstractTest {
                         Assert.assertTrue(valid);
                         receiveCount++;
                     }
-                } catch (Throwable e) {
-                    e.printStackTrace();
-                    throw e;
                 } finally {
                     serverRunning.set(false);
                     serverHaltLatch.await();
@@ -7873,7 +7886,7 @@ public class IODispatcherTest extends AbstractTest {
             CairoEngine cairoEngine,
             WorkerPool workerPool
     ) {
-        return Services.createHttpServer(
+        return Services.INSTANCE.createHttpServer(
                 configuration,
                 cairoEngine,
                 workerPool,
@@ -7937,7 +7950,7 @@ public class IODispatcherTest extends AbstractTest {
 
     private static void sendRequest(String request, int fd, long buffer) {
         final int requestLen = request.length();
-        Chars.asciiStrCpy(request, requestLen, buffer);
+        Utf8s.strCpyAscii(request, requestLen, buffer);
         Assert.assertEquals(requestLen, Net.send(fd, buffer, requestLen));
     }
 
@@ -7993,7 +8006,7 @@ public class IODispatcherTest extends AbstractTest {
         DefaultCairoConfiguration configuration = new DefaultTestCairoConfiguration(baseDir);
 
         String dirName = TableUtils.getTableDir(mangleTableDirNames, tableName, 1, false);
-        TableToken tableToken = new TableToken(tableName, dirName, 1, false, false);
+        TableToken tableToken = new TableToken(tableName, dirName, 1, false, false, false);
         try (TableReader reader = new TableReader(configuration, tableToken)) {
             Assert.assertEquals(expectedO3MaxLag, reader.getO3MaxLag());
             Assert.assertEquals(expectedMaxUncommittedRows, reader.getMaxUncommittedRows());
@@ -8009,7 +8022,7 @@ public class IODispatcherTest extends AbstractTest {
         DefaultCairoConfiguration configuration = new DefaultTestCairoConfiguration(baseDir);
 
         String telemetry = TelemetryTask.TABLE_NAME;
-        TableToken telemetryTableName = new TableToken(telemetry, telemetry, 0, false, false);
+        TableToken telemetryTableName = new TableToken(telemetry, telemetry, 0, false, false, false);
         try (TableReader reader = new TableReader(configuration, telemetryTableName)) {
             final StringSink sink = new StringSink();
             sink.clear();
@@ -8786,7 +8799,7 @@ public class IODispatcherTest extends AbstractTest {
         Unsafe.free(buf, 1048576, MemoryTag.NATIVE_DEFAULT);
     }
 
-    private static class ByteArrayResponse extends AbstractCharSequence implements ByteSequence {
+    private static class ByteArrayResponse extends AbstractCharSequence {
         private final byte[] bytes;
         private final int len;
 
@@ -8796,7 +8809,6 @@ public class IODispatcherTest extends AbstractTest {
             this.len = len;
         }
 
-        @Override
         public byte byteAt(int index) {
             if (index >= len) {
                 throw new IndexOutOfBoundsException();

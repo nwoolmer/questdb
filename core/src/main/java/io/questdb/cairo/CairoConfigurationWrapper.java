@@ -24,18 +24,17 @@
 
 package io.questdb.cairo;
 
-import io.questdb.BuildInformation;
-import io.questdb.FactoryProvider;
-import io.questdb.TelemetryConfiguration;
-import io.questdb.VolumeDefinitions;
+import io.questdb.*;
 import io.questdb.cairo.sql.SqlExecutionCircuitBreakerConfiguration;
 import io.questdb.cutlass.text.TextConfiguration;
 import io.questdb.std.FilesFacade;
+import io.questdb.std.ObjObjHashMap;
 import io.questdb.std.datetime.DateFormat;
 import io.questdb.std.datetime.DateLocale;
 import io.questdb.std.datetime.microtime.MicrosecondClock;
 import io.questdb.std.datetime.millitime.MillisecondClock;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.function.LongSupplier;
 
@@ -57,13 +56,13 @@ public class CairoConfigurationWrapper implements CairoConfiguration {
     }
 
     @Override
-    public boolean getAllowTableRegistrySharedWrite() {
-        return delegate.getAllowTableRegistrySharedWrite();
+    public @Nullable ObjObjHashMap<ConfigPropertyKey, ConfigPropertyValue> getAllPairs() {
+        return delegate.getAllPairs();
     }
 
     @Override
-    public int getAnalyticColumnPoolCapacity() {
-        return delegate.getAnalyticColumnPoolCapacity();
+    public boolean getAllowTableRegistrySharedWrite() {
+        return delegate.getAllowTableRegistrySharedWrite();
     }
 
     @Override
@@ -164,6 +163,16 @@ public class CairoConfigurationWrapper implements CairoConfiguration {
     @Override
     public int getCopyPoolCapacity() {
         return delegate.getCopyPoolCapacity();
+    }
+
+    @Override
+    public int getCountDistinctCapacity() {
+        return delegate.getCountDistinctCapacity();
+    }
+
+    @Override
+    public double getCountDistinctLoadFactor() {
+        return delegate.getCountDistinctLoadFactor();
     }
 
     @Override
@@ -452,11 +461,6 @@ public class CairoConfigurationWrapper implements CairoConfiguration {
     }
 
     @Override
-    public int getQueryCacheEventQueueCapacity() {
-        return delegate.getQueryCacheEventQueueCapacity();
-    }
-
-    @Override
     public int getReaderPoolMaxSegments() {
         return delegate.getReaderPoolMaxSegments();
     }
@@ -512,36 +516,6 @@ public class CairoConfigurationWrapper implements CairoConfiguration {
     }
 
     @Override
-    public int getSqlAnalyticRowIdMaxPages() {
-        return delegate.getSqlAnalyticRowIdMaxPages();
-    }
-
-    @Override
-    public int getSqlAnalyticRowIdPageSize() {
-        return delegate.getSqlAnalyticRowIdPageSize();
-    }
-
-    @Override
-    public int getSqlAnalyticStoreMaxPages() {
-        return delegate.getSqlAnalyticStoreMaxPages();
-    }
-
-    @Override
-    public int getSqlAnalyticStorePageSize() {
-        return delegate.getSqlAnalyticStorePageSize();
-    }
-
-    @Override
-    public int getSqlAnalyticTreeKeyMaxPages() {
-        return delegate.getSqlAnalyticTreeKeyMaxPages();
-    }
-
-    @Override
-    public int getSqlAnalyticTreeKeyPageSize() {
-        return delegate.getSqlAnalyticTreeKeyPageSize();
-    }
-
-    @Override
     public int getSqlCharacterStoreCapacity() {
         return delegate.getSqlCharacterStoreCapacity();
     }
@@ -559,6 +533,11 @@ public class CairoConfigurationWrapper implements CairoConfiguration {
     @Override
     public double getSqlCompactMapLoadFactor() {
         return delegate.getSqlCompactMapLoadFactor();
+    }
+
+    @Override
+    public int getSqlCompilerPoolCapacity() {
+        return delegate.getSqlCompilerPoolCapacity();
     }
 
     @Override
@@ -662,11 +641,6 @@ public class CairoConfigurationWrapper implements CairoConfiguration {
     }
 
     @Override
-    public int getSqlJitRowsThreshold() {
-        return delegate.getSqlJitRowsThreshold();
-    }
-
-    @Override
     public int getSqlJoinContextPoolCapacity() {
         return delegate.getSqlJoinContextPoolCapacity();
     }
@@ -762,13 +736,68 @@ public class CairoConfigurationWrapper implements CairoConfiguration {
     }
 
     @Override
+    public int getSqlWindowInitialRangeBufferSize() {
+        return delegate.getSqlWindowInitialRangeBufferSize();
+    }
+
+    @Override
+    public int getSqlWindowMaxRecursion() {
+        return delegate.getSqlWindowMaxRecursion();
+    }
+
+    @Override
+    public int getSqlWindowRowIdMaxPages() {
+        return delegate.getSqlWindowRowIdMaxPages();
+    }
+
+    @Override
+    public int getSqlWindowRowIdPageSize() {
+        return delegate.getSqlWindowRowIdPageSize();
+    }
+
+    @Override
+    public int getSqlWindowStoreMaxPages() {
+        return delegate.getSqlWindowStoreMaxPages();
+    }
+
+    @Override
+    public int getSqlWindowStorePageSize() {
+        return delegate.getSqlWindowStorePageSize();
+    }
+
+    @Override
+    public int getSqlWindowTreeKeyMaxPages() {
+        return delegate.getSqlWindowTreeKeyMaxPages();
+    }
+
+    @Override
+    public int getSqlWindowTreeKeyPageSize() {
+        return delegate.getSqlWindowTreeKeyPageSize();
+    }
+
+    @Override
     public int getStrFunctionMaxBufferLength() {
         return delegate.getStrFunctionMaxBufferLength();
     }
 
     @Override
+    public long getSystemDataAppendPageSize() {
+        return delegate.getSystemDataAppendPageSize();
+    }
+
+    @Override
+    public int getSystemO3ColumnMemorySize() {
+        return delegate.getSystemO3ColumnMemorySize();
+    }
+
+    @Override
     public @NotNull CharSequence getSystemTableNamePrefix() {
         return delegate.getSystemTableNamePrefix();
+    }
+
+    @Override
+    public long getSystemWalDataAppendPageSize() {
+        return delegate.getSystemWalDataAppendPageSize();
     }
 
     @Override
@@ -832,13 +861,28 @@ public class CairoConfigurationWrapper implements CairoConfiguration {
     }
 
     @Override
+    public long getWalMaxLagSize() {
+        return delegate.getWalMaxLagSize();
+    }
+
+    @Override
     public int getWalMaxLagTxnCount() {
         return delegate.getWalMaxLagTxnCount();
     }
 
     @Override
+    public int getWalMaxSegmentFileDescriptorsCache() {
+        return delegate.getWalMaxSegmentFileDescriptorsCache();
+    }
+
+    @Override
     public long getWalPurgeInterval() {
         return delegate.getWalPurgeInterval();
+    }
+
+    @Override
+    public int getWalPurgeWaitBeforeDelete() {
+        return delegate.getWalPurgeWaitBeforeDelete();
     }
 
     @Override
@@ -852,6 +896,11 @@ public class CairoConfigurationWrapper implements CairoConfiguration {
     }
 
     @Override
+    public long getWalSegmentRolloverSize() {
+        return delegate.getWalSegmentRolloverSize();
+    }
+
+    @Override
     public double getWalSquashUncommittedRowsMultiplier() {
         return delegate.getWalSquashUncommittedRowsMultiplier();
     }
@@ -859,6 +908,16 @@ public class CairoConfigurationWrapper implements CairoConfiguration {
     @Override
     public int getWalTxnNotificationQueueCapacity() {
         return delegate.getWalTxnNotificationQueueCapacity();
+    }
+
+    @Override
+    public int getWalWriterPoolMaxSegments() {
+        return delegate.getWalWriterPoolMaxSegments();
+    }
+
+    @Override
+    public int getWindowColumnPoolCapacity() {
+        return delegate.getWindowColumnPoolCapacity();
     }
 
     @Override
@@ -894,6 +953,11 @@ public class CairoConfigurationWrapper implements CairoConfiguration {
     @Override
     public long getWriterFileOpenOpts() {
         return delegate.getWriterFileOpenOpts();
+    }
+
+    @Override
+    public long getWriterMemoryLimit() {
+        return 0;
     }
 
     @Override

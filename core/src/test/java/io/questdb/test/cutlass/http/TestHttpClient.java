@@ -29,13 +29,16 @@ import io.questdb.cutlass.http.client.ChunkedResponse;
 import io.questdb.cutlass.http.client.HttpClient;
 import io.questdb.cutlass.http.client.HttpClientFactory;
 import io.questdb.std.CharSequenceObjHashMap;
-import io.questdb.std.Chars;
 import io.questdb.std.Misc;
 import io.questdb.std.QuietCloseable;
 import io.questdb.std.str.CharSink;
 import io.questdb.std.str.StringSink;
+import io.questdb.std.str.Utf8s;
 import io.questdb.test.tools.TestUtils;
 import org.jetbrains.annotations.Nullable;
+import org.junit.Assert;
+
+import java.util.regex.Pattern;
 
 public class TestHttpClient implements QuietCloseable {
     private final HttpClient httpClient = HttpClientFactory.newInstance();
@@ -95,7 +98,7 @@ public class TestHttpClient implements QuietCloseable {
 
             sink.clear();
             while ((chunk = chunkedResponse.recv()) != null) {
-                Chars.utf8toUtf16(chunk.lo(), chunk.hi(), sink);
+                Utf8s.utf8ToUtf16(chunk.lo(), chunk.hi(), sink);
             }
 
             TestUtils.assertEquals(expectedResponse, sink);
@@ -115,8 +118,29 @@ public class TestHttpClient implements QuietCloseable {
     ) {
         try {
             sink.clear();
-            toSink0(url, sql, sink, username, password);
+            toSink0(url, sql, sink, username, password, null);
             TestUtils.assertEquals(expectedResponse, sink);
+        } finally {
+            if (!keepConnection) {
+                httpClient.disconnect();
+            }
+        }
+    }
+
+    public void assertGetRegexp(
+            CharSequence url,
+            String expectedResponseRegexp,
+            CharSequence sql,
+            @Nullable CharSequence username,
+            @Nullable CharSequence password,
+            CharSequence expectedStatus
+    ) {
+        try {
+            sink.clear();
+            toSink0(url, sql, sink, username, password, expectedStatus);
+            Pattern pattern = Pattern.compile(expectedResponseRegexp);
+            String message = "Expected response to match regexp " + expectedResponseRegexp + " but got " + sink + " which does not match";
+            Assert.assertTrue(message, pattern.matcher(sink).matches());
         } finally {
             if (!keepConnection) {
                 httpClient.disconnect();
@@ -135,7 +159,7 @@ public class TestHttpClient implements QuietCloseable {
 
     public void toSink(CharSequence url, CharSequence sql, CharSink sink) {
         try {
-            toSink0(url, sql, sink, null, null);
+            toSink0(url, sql, sink, null, null, null);
         } finally {
             if (!keepConnection) {
                 httpClient.disconnect();
@@ -148,7 +172,8 @@ public class TestHttpClient implements QuietCloseable {
             CharSequence sql,
             CharSink sink,
             @Nullable CharSequence username,
-            @Nullable CharSequence password
+            @Nullable CharSequence password,
+            CharSequence expectedStatus
     ) {
         HttpClient.Request req = httpClient.newRequest();
         req
@@ -161,13 +186,17 @@ public class TestHttpClient implements QuietCloseable {
         }
 
         HttpClient.ResponseHeaders rsp = req.send("localhost", 9001);
-
         rsp.await();
+
+        if (expectedStatus != null) {
+            TestUtils.assertEquals(expectedStatus, rsp.getStatusCode());
+        }
+
         ChunkedResponse chunkedResponse = rsp.getChunkedResponse();
         Chunk chunk;
 
         while ((chunk = chunkedResponse.recv()) != null) {
-            Chars.utf8toUtf16(chunk.lo(), chunk.hi(), sink);
+            Utf8s.utf8ToUtf16(chunk.lo(), chunk.hi(), sink);
         }
     }
 }

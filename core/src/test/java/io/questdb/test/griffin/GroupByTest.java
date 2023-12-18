@@ -658,10 +658,10 @@ public class GroupByTest extends AbstractCairoTest {
     @Test
     public void testGroupByAliasInDifferentOrder1() throws Exception {
         assertQuery("k1\tk2\tcount\n" +
-                        "0\t0\t2\n" +
                         "0\t2\t3\n" +
-                        "1\t3\t2\n" +
-                        "1\t1\t3\n",
+                        "0\t0\t2\n" +
+                        "1\t1\t3\n" +
+                        "1\t3\t2\n",
                 "select key1 as k1, key2 as k2, count(*) from t group by k2, k1 order by 1",
                 "create table t as ( select x%2 key1, x%4 key2, x as value from long_sequence(10)); ", null, true, true
         );
@@ -670,10 +670,10 @@ public class GroupByTest extends AbstractCairoTest {
     @Test
     public void testGroupByAliasInDifferentOrder2() throws Exception {
         assertQuery("k1\tk2\tcount\n" +
-                        "1\t0\t2\n" +
                         "1\t2\t3\n" +
-                        "2\t3\t2\n" +
-                        "2\t1\t3\n",
+                        "1\t0\t2\n" +
+                        "2\t1\t3\n" +
+                        "2\t3\t2\n",
                 "select key1+1 as k1, key2 as k2, count(*) from t group by k2, k1 order by 1",
                 "create table t as ( select x%2 key1, x%4 key2, x as value from long_sequence(10)); ", null, true, true
         );
@@ -844,6 +844,21 @@ public class GroupByTest extends AbstractCairoTest {
                 "CREATE TABLE x (ts TIMESTAMP, event SHORT, origin SHORT) TIMESTAMP(ts);",
                 69,
                 "Invalid date"
+        );
+    }
+
+    @Test
+    public void testGroupByNonPartitioned() throws Exception {
+        assertQuery(
+                "k\tsum\n" +
+                        "TJWC\t0.2845577791213847\n" +
+                        "HYRX\t0.8423410920883345\n" +
+                        "NRXG\t0.3491070363730514\n",
+                "SELECT k, sum(val) FROM tab LIMIT 3;",
+                "CREATE TABLE tab AS (SELECT rnd_str(4, 4, 0) k, rnd_double() val FROM long_sequence(100000));",
+                null,
+                true,
+                false
         );
     }
 

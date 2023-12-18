@@ -36,6 +36,8 @@ import io.questdb.std.datetime.microtime.MicrosecondClock;
 import io.questdb.std.datetime.millitime.MillisecondClock;
 import org.jetbrains.annotations.NotNull;
 
+import java.util.Map;
+
 public class CairoTestConfiguration extends DefaultTestCairoConfiguration {
     private final ConfigurationOverrides overrides;
     private final TelemetryConfiguration telemetryConfiguration;
@@ -108,6 +110,11 @@ public class CairoTestConfiguration extends DefaultTestCairoConfiguration {
     }
 
     @Override
+    public Map<String, String> getEnv() {
+        return overrides.getEnv();
+    }
+
+    @Override
     public @NotNull FactoryProvider getFactoryProvider() {
         return overrides.getFactoryProvider() == null ? super.getFactoryProvider() : overrides.getFactoryProvider();
     }
@@ -136,6 +143,16 @@ public class CairoTestConfiguration extends DefaultTestCairoConfiguration {
     @Override
     public int getMaxUncommittedRows() {
         return overrides.getMaxUncommittedRows() >= 0 ? overrides.getMaxUncommittedRows() : super.getMaxUncommittedRows();
+    }
+
+    @Override
+    public int getWalMaxSegmentFileDescriptorsCache() {
+        return overrides.getWalMaxSegmentFileDescriptorsCache() >= 0 ? overrides.getWalMaxSegmentFileDescriptorsCache() : super.getWalMaxSegmentFileDescriptorsCache();
+    }
+
+    @Override
+    public long getWalMaxLagSize() {
+        return overrides.getWalMaxLagSize() >= 0 ? overrides.getWalMaxLagSize() : super.getWalMaxLagSize();
     }
 
     @Override
@@ -200,11 +217,6 @@ public class CairoTestConfiguration extends DefaultTestCairoConfiguration {
     }
 
     @Override
-    public int getQueryCacheEventQueueCapacity() {
-        return overrides.getQueryCacheEventQueueCapacity() < 0 ? super.getQueryCacheEventQueueCapacity() : overrides.getQueryCacheEventQueueCapacity();
-    }
-
-    @Override
     public int getRepeatMigrationsFromVersion() {
         return overrides.getRepeatMigrationsFromVersion();
     }
@@ -227,6 +239,11 @@ public class CairoTestConfiguration extends DefaultTestCairoConfiguration {
     @Override
     public int getSampleByIndexSearchPageSize() {
         return overrides.getSampleByIndexSearchPageSize() > 0 ? overrides.getSampleByIndexSearchPageSize() : super.getSampleByIndexSearchPageSize();
+    }
+
+    @Override
+    public boolean getSimulateCrashEnabled() {
+        return overrides.getSimulateCrashEnabled();
     }
 
     @Override
@@ -280,6 +297,21 @@ public class CairoTestConfiguration extends DefaultTestCairoConfiguration {
     }
 
     @Override
+    public int getSqlWindowMaxRecursion() {
+        return overrides.getSqlWindowMaxRecursion() > 0 ? overrides.getSqlWindowMaxRecursion() : super.getSqlWindowMaxRecursion();
+    }
+
+    @Override
+    public int getSqlWindowStoreMaxPages() {
+        return overrides.getSqlWindowStoreMaxPages() > 0 ? overrides.getSqlWindowStoreMaxPages() : super.getSqlWindowStoreMaxPages();
+    }
+
+    @Override
+    public int getSqlWindowStorePageSize() {
+        return overrides.getSqlWindowStorePageSize() > 0 ? overrides.getSqlWindowStorePageSize() : super.getSqlWindowStorePageSize();
+    }
+
+    @Override
     public int getTableRegistryCompactionThreshold() {
         return overrides.getTableRegistryCompactionThreshold() > 0 ? overrides.getTableRegistryCompactionThreshold() : super.getTableRegistryCompactionThreshold();
     }
@@ -292,6 +324,11 @@ public class CairoTestConfiguration extends DefaultTestCairoConfiguration {
     @Override
     public @NotNull VolumeDefinitions getVolumeDefinitions() {
         return volumeDefinitions;
+    }
+
+    @Override
+    public int getWalApplyLookAheadTransactionCount() {
+        return overrides.getWalApplyLookAheadTransactionCount() >= 0 ? overrides.getWalApplyLookAheadTransactionCount() : super.getWalApplyLookAheadTransactionCount();
     }
 
     @Override
@@ -322,6 +359,11 @@ public class CairoTestConfiguration extends DefaultTestCairoConfiguration {
     @Override
     public long getWalSegmentRolloverRowCount() {
         return overrides.getWalSegmentRolloverRowCount() < 0 ? super.getWalSegmentRolloverRowCount() : overrides.getWalSegmentRolloverRowCount();
+    }
+
+    @Override
+    public long getWalSegmentRolloverSize() {
+        return overrides.getWalSegmentRolloverSize() < 0 ? super.getWalSegmentRolloverSize() : overrides.getWalSegmentRolloverSize();
     }
 
     @Override
