@@ -3369,6 +3369,7 @@ public class SqlCodeGenerator implements Mutable, Closeable {
             final ObjList<GroupByFunction> groupByFunctions = new ObjList<>(columnCount);
             final ObjList<Function> keyFunctions = new ObjList<>(columnCount);
             final ObjList<ExpressionNode> keyFunctionNodes = new ObjList<>(columnCount);
+
             try {
                 GroupByUtils.prepareGroupByFunctions(
                         model,
@@ -3424,6 +3425,20 @@ public class SqlCodeGenerator implements Mutable, Closeable {
                     StealableFilterRecordCursorFactory filterFactory = (StealableFilterRecordCursorFactory) factory;
                     if (filterFactory.supportsFilterStealing()) {
                         factory = factory.getBaseFactory();
+                        assert factory.supportPageFrameCursor();
+                        filter = filterFactory.getFilter();
+                        supportsParallelism = true;
+                        filterFactory.halfClose();
+                    }
+                }
+
+                // 4142 - if aliasing a column, then the filter is nested inside SelectedRecord
+                // This prevents async group by optimisation
+                // Instead, steal from the nested factory and elide this.
+                if (!supportsParallelism && (factory instanceof SelectedRecordCursorFactory) &&(factory.getBaseFactory() instanceof StealableFilterRecordCursorFactory)) {
+                    StealableFilterRecordCursorFactory filterFactory = (StealableFilterRecordCursorFactory) factory.getBaseFactory();
+                    if (filterFactory.supportsFilterStealing()) {
+                        factory = factory.getBaseFactory().getBaseFactory();
                         assert factory.supportPageFrameCursor();
                         filter = filterFactory.getFilter();
                         supportsParallelism = true;

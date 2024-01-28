@@ -8744,15 +8744,13 @@ public class ExplainPlanTest extends AbstractCairoTest {
         assertPlan(
                 "create table a ( i int, l long, ts timestamp) timestamp(ts) ;",
                 "select k, max(ts) from ( select ts, l as k, i from a where l::short<i ) where k < 0 ",
-                "GroupBy vectorized: false\n" +
+                "Async Group By workers: 1\n" +
                         "  keys: [k]\n" +
                         "  values: [max(ts)]\n" +
-                        "    SelectedRecord\n" +
-                        "        Async Filter workers: 1\n" +
-                        "          filter: (l::short<i and l<0)\n" +
-                        "            DataFrame\n" +
-                        "                Row forward scan\n" +
-                        "                Frame forward scan on: a\n"
+                        "  filter: (l::short<i and l<0)\n" +
+                        "    DataFrame\n" +
+                        "        Row forward scan\n" +
+                        "        Frame forward scan on: a\n"
         );
     }
 
@@ -8765,15 +8763,13 @@ public class ExplainPlanTest extends AbstractCairoTest {
                         "from a where l::short<i ) " +
                         "where mil + mini> 1 ",
                 "Filter filter: 1<mil+mini\n" +
-                        "    GroupBy vectorized: false\n" +
+                        "    Async Group By workers: 1\n" +
                         "      keys: [k]\n" +
                         "      values: [max(i*l),min(l),min(i)]\n" +
-                        "        SelectedRecord\n" +
-                        "            Async Filter workers: 1\n" +
-                        "              filter: l::short<i\n" +
-                        "                DataFrame\n" +
-                        "                    Row forward scan\n" +
-                        "                    Frame forward scan on: a\n"
+                        "      filter: l::short<i\n" +
+                        "        DataFrame\n" +
+                        "            Row forward scan\n" +
+                        "            Frame forward scan on: a\n"
         );
     }
 
