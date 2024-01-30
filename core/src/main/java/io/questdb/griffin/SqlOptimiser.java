@@ -1059,22 +1059,50 @@ public class SqlOptimiser implements Mutable {
             groupByModel.addBottomUpColumn(translatedColumn);
             return translatedColumn;
         } else {
-            final CharSequence alias = createColumnAlias(columnName, translatingModel);
-            addColumnToTranslatingModel(
-                    queryColumnPool.next().of(
-                            alias,
-                            columnAst
-                    ),
-                    translatingModel,
-                    validatingModel
-            );
+                final CharSequence alias = createColumnAlias(columnName, translatingModel);
+                QueryColumn translatingColumn =  queryColumnPool.next().of(
+                        alias,
+                        columnAst
+                );
 
-            final QueryColumn translatedColumn = nextColumn(alias);
-            // create column that references inner alias we just created
-            innerModel.addBottomUpColumn(translatedColumn);
-            windowModel.addBottomUpColumn(translatedColumn);
-            groupByModel.addBottomUpColumn(translatedColumn);
-            return translatedColumn;
+                if (alias != columnAst.token) {
+                    QueryColumn unaliasedColumn = queryColumnPool.next().of(
+                            columnAst.token, columnAst);
+
+                    addColumnToTranslatingModel(
+                            unaliasedColumn,
+                            translatingModel,
+                            validatingModel
+                    );
+
+//                    addColumnToTranslatingModel(
+//                            translatingColumn,
+//                            translatingModel,
+//                            validatingModel
+//                    );
+                    // then add translated column to rest
+
+                    final QueryColumn translatedColumn = nextColumn(alias);
+                    // create column that references inner alias we just created
+                    innerModel.addBottomUpColumn(unaliasedColumn);
+                    windowModel.addBottomUpColumn(translatedColumn);
+                    groupByModel.addBottomUpColumn(translatingColumn);
+                    return translatedColumn;
+                } else {
+                    addColumnToTranslatingModel(
+                            translatingColumn,
+                            translatingModel,
+                            validatingModel
+                    );
+                    // then add translated column to rest
+
+                    final QueryColumn translatedColumn = nextColumn(alias);
+                    // create column that references inner alias we just created
+                    innerModel.addBottomUpColumn(translatedColumn);
+                    windowModel.addBottomUpColumn(translatedColumn);
+                    groupByModel.addBottomUpColumn(translatedColumn);
+                    return translatedColumn;
+                }
         }
     }
 
